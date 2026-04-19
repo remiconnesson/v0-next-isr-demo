@@ -1,3 +1,4 @@
+import { cacheLife } from "next/cache"
 import { DemoNav } from "@/components/demo-nav"
 import { TimestampCard } from "@/components/timestamp-card"
 import { CodeBlock } from "@/components/code-block"
@@ -6,14 +7,18 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 
 // ---------------------------------------------------------------
-// THIS is the key line. It tells Next.js to revalidate this page
-// at most once every 15 seconds. After 15s, the next request will
-// trigger a background re-render, while the stale version is served
-// immediately to the current visitor.
+// This cached function generates a timestamp and random value.
+// The result is cached for 15 seconds. After 15s the cache is
+// stale, and the next call triggers background regeneration.
 // ---------------------------------------------------------------
-export const revalidate = 15
+async function getPageData() {
+  "use cache"
+  cacheLife({
+    stale: 15,
+    revalidate: 15,
+    expire: 300,
+  })
 
-export default function TimeBasedPage() {
   const now = new Date()
   const generatedAt = now.toLocaleTimeString("en-US", {
     hour: "2-digit",
@@ -24,6 +29,12 @@ export default function TimeBasedPage() {
   })
   const randomValue = Math.floor(Math.random() * 100_000)
 
+  return { generatedAt, randomValue }
+}
+
+export default async function TimeBasedPage() {
+  const { generatedAt, randomValue } = await getPageData()
+
   return (
     <div className="min-h-screen bg-background">
       <DemoNav currentPath="/time-based" />
@@ -33,7 +44,7 @@ export default function TimeBasedPage() {
           <div className="flex items-center gap-3">
             <Badge variant="secondary">Strategy 1</Badge>
             <Badge variant="outline" className="font-mono text-xs">
-              revalidate = 15
+              cacheLife &#x2014; 15s
             </Badge>
           </div>
           <h1 className="text-balance text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
@@ -55,7 +66,7 @@ export default function TimeBasedPage() {
           </h2>
           <TimestampCard
             generatedAt={generatedAt}
-            cacheStatus="revalidate = 15"
+            cacheStatus="cacheLife: 15s"
             randomValue={randomValue}
             title="Cached page data"
             description="These values were captured when the page was last rendered on the server."
@@ -63,10 +74,21 @@ export default function TimeBasedPage() {
 
           <Callout type="info" title="How to test">
             <ol className="mt-1 flex flex-col gap-1 text-sm">
-              <li>1. Note the timestamp and random value above.</li>
-              <li>2. Refresh the page immediately &mdash; values stay the same (cached).</li>
-              <li>3. Wait 15+ seconds, then refresh &mdash; you still see stale data.</li>
-              <li>4. Refresh once more &mdash; now you see new data (regenerated in background).</li>
+              <li>
+                1. Note the timestamp and random value above.
+              </li>
+              <li>
+                2. Refresh the page immediately &mdash; values stay the same
+                (cached).
+              </li>
+              <li>
+                3. Wait 15+ seconds, then refresh &mdash; you still see stale
+                data.
+              </li>
+              <li>
+                4. Refresh once more &mdash; now you see new data (regenerated
+                in background).
+              </li>
             </ol>
           </Callout>
         </section>
@@ -80,25 +102,38 @@ export default function TimeBasedPage() {
           </h2>
 
           <p className="text-sm text-muted-foreground leading-relaxed">
-            The entire implementation is a single export. Line 2 is where the
-            magic happens:
+            The entire implementation uses the{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+              &quot;use cache&quot;
+            </code>{" "}
+            directive with{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+              cacheLife()
+            </code>{" "}
+            to control the revalidation window:
           </p>
 
           <CodeBlock
             filename="app/time-based/page.tsx"
-            code={`// Tell Next.js: cache this page for 15 seconds
-export const revalidate = 15
+            code={`import { cacheLife } from "next/cache"
 
-export default function TimeBasedPage() {
-  const now = new Date()
-  const generatedAt = now.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-    timeZone: "UTC",
+// Cached data function — revalidates every 15 seconds
+async function getPageData() {
+  "use cache"
+  cacheLife({
+    stale: 15,      // serve stale for 15s
+    revalidate: 15, // revalidate after 15s
+    expire: 300,    // expire after 5 min
   })
-  const randomValue = Math.floor(Math.random() * 100_000)
+
+  return {
+    generatedAt: new Date().toLocaleTimeString(...),
+    randomValue: Math.floor(Math.random() * 100_000),
+  }
+}
+
+export default async function TimeBasedPage() {
+  const { generatedAt, randomValue } = await getPageData()
 
   return (
     <div>
@@ -107,7 +142,55 @@ export default function TimeBasedPage() {
     </div>
   )
 }`}
-            highlight={[2]}
+            highlight={[4, 5, 6, 7, 8, 9, 10]}
+          />
+
+          <Callout type="tip" title="Why &quot;use cache&quot;?">
+            <p>
+              In Next.js 16, the{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                &quot;use cache&quot;
+              </code>{" "}
+              directive (enabled via{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                cacheComponents: true
+              </code>{" "}
+              in next.config) marks a component or function as cacheable. The{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                cacheLife()
+              </code>{" "}
+              call controls how long the cached result lives.
+            </p>
+          </Callout>
+        </section>
+
+        <Separator className="mb-8" />
+
+        {/* config callout */}
+        <section className="flex flex-col gap-6 pb-10">
+          <h2 className="text-xl font-semibold text-foreground">
+            Required configuration
+          </h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            To use{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+              &quot;use cache&quot;
+            </code>{" "}
+            you must enable{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+              cacheComponents
+            </code>{" "}
+            in your Next.js config:
+          </p>
+          <CodeBlock
+            filename="next.config.mjs"
+            code={`/** @type {import('next').NextConfig} */
+const nextConfig = {
+  cacheComponents: true,
+}
+
+export default nextConfig`}
+            highlight={[3]}
           />
         </section>
 
@@ -124,11 +207,11 @@ export default function TimeBasedPage() {
               {
                 time: "t = 0s",
                 title: "Build / first request",
-                desc: "Next.js renders the page and caches the result. The 15-second timer starts.",
+                desc: 'Next.js renders the page and caches the result. The "use cache" directive with cacheLife({revalidate: 15}) starts the timer.',
               },
               {
                 time: "t < 15s",
-                title: "Within the revalidation window",
+                title: "Within the stale window",
                 desc: "All requests get the cached HTML instantly. No server rendering occurs.",
               },
               {
@@ -152,9 +235,7 @@ export default function TimeBasedPage() {
                   <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-mono font-bold text-primary">
                     {i + 1}
                   </div>
-                  {i < 4 && (
-                    <div className="w-px flex-1 bg-border" />
-                  )}
+                  {i < 4 && <div className="w-px flex-1 bg-border" />}
                 </div>
                 <div className="flex flex-col gap-1 pb-6">
                   <span className="font-mono text-xs text-muted-foreground">
@@ -174,42 +255,68 @@ export default function TimeBasedPage() {
 
         <Separator className="mb-8" />
 
-        {/* Per-fetch example */}
+        {/* cacheLife profiles */}
         <section className="flex flex-col gap-6 pb-10">
           <h2 className="text-xl font-semibold text-foreground">
-            Alternative: per-fetch revalidation
+            Built-in cacheLife profiles
           </h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Instead of setting a page-level <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">revalidate</code>{" "}
-            export, you can configure it per <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">fetch</code>{" "}
-            call. This is useful when different data sources have different
-            freshness requirements.
+            Instead of a custom object, you can use built-in profile names
+            for common durations:
           </p>
+
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="py-3 pr-4 text-left font-semibold text-foreground">
+                    Profile
+                  </th>
+                  <th className="py-3 px-4 text-left font-semibold text-foreground">
+                    stale
+                  </th>
+                  <th className="py-3 px-4 text-left font-semibold text-foreground">
+                    revalidate
+                  </th>
+                  <th className="py-3 pl-4 text-left font-semibold text-foreground">
+                    expire
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="text-muted-foreground font-mono text-xs">
+                {[
+                  ["seconds", "0", "1s", "60s"],
+                  ["minutes", "5m", "1m", "1h"],
+                  ["hours", "5m", "1h", "1d"],
+                  ["days", "5m", "1d", "1w"],
+                  ["weeks", "5m", "1w", "30d"],
+                  ["max", "5m", "30d", "indefinite"],
+                ].map(([profile, stale, revalidate, expire]) => (
+                  <tr key={profile} className="border-b border-border">
+                    <td className="py-3 pr-4 font-medium text-foreground">
+                      {profile}
+                    </td>
+                    <td className="py-3 px-4">{stale}</td>
+                    <td className="py-3 px-4">{revalidate}</td>
+                    <td className="py-3 pl-4">{expire}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
           <CodeBlock
-            filename="app/mixed/page.tsx"
-            code={`export default async function MixedPage() {
-  // Revalidate every 60 seconds
-  const posts = await fetch('https://api.example.com/posts', {
-    next: { revalidate: 60 },
-  })
+            filename="example.tsx"
+            code={`import { cacheLife } from "next/cache"
 
-  // Revalidate every 5 seconds
-  const prices = await fetch('https://api.example.com/prices', {
-    next: { revalidate: 5 },
-  })
-
-  // Next.js uses the LOWEST revalidate value (5s)
-  // to determine the page-level revalidation interval
+// Use a built-in profile
+export async function getData() {
+  "use cache"
+  cacheLife("hours") // stale: 5m, revalidate: 1h, expire: 1d
+  return fetch("/api/data")
 }`}
-            highlight={[4, 9]}
+            highlight={[6]}
           />
-          <Callout type="warning" title="Lowest value wins">
-            <p>
-              When multiple fetches on the same page have different
-              <code>revalidate</code> values, Next.js uses the{" "}
-              <strong>lowest</strong> one for the whole page.
-            </p>
-          </Callout>
         </section>
       </main>
     </div>

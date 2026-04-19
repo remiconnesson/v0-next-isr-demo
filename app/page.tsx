@@ -129,22 +129,31 @@ export default function HomePage() {
             <CardContent className="pt-6">
               <div className="flex flex-col gap-4">
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Export a <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">revalidate</code>{" "}
-                  constant from your page or layout file. Next.js will serve the
+                  Use the{" "}
+                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">&quot;use cache&quot;</code>{" "}
+                  directive with{" "}
+                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">cacheLife()</code>{" "}
+                  to control how long the page stays cached. Next.js will serve the
                   cached page until the timer expires, then regenerate it on the
                   next request.
                 </p>
                 <CodeBlock
                   filename="app/time-based/page.tsx"
-                  code={`// This page will be regenerated at most every 15 seconds
-export const revalidate = 15
+                  code={`import { cacheLife } from "next/cache"
+
+// Cached function — revalidates every 15 seconds
+async function getPageData() {
+  "use cache"
+  cacheLife({ stale: 15, revalidate: 15, expire: 300 })
+
+  return { timestamp: new Date().toISOString() }
+}
 
 export default async function Page() {
-  // This runs at build time, then again every 15s
-  const data = await fetchSomeData()
+  const data = await getPageData()
   return <div>{data.timestamp}</div>
 }`}
-                  highlight={[2]}
+                  highlight={[5, 6]}
                 />
                 <Callout type="tip" title="Stale-while-revalidate pattern">
                   <p>
@@ -181,26 +190,30 @@ export default async function Page() {
             <CardContent className="pt-6">
               <div className="flex flex-col gap-4">
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Use <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">revalidateTag()</code>{" "}
-                  or <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">revalidatePath()</code>{" "}
-                  in a Route Handler or Server Action to invalidate specific
-                  cached entries whenever you need.
+                  Tag your cached pages with{" "}
+                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">cacheTag()</code>{" "}
+                  inside a{" "}
+                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">&quot;use cache&quot;</code>{" "}
+                  scope. Then call{" "}
+                  <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">revalidateTag()</code>{" "}
+                  in a Route Handler or Server Action to invalidate them.
                 </p>
                 <CodeBlock
                   filename="app/api/revalidate/route.ts"
-                  code={`import { revalidateTag } from 'next/cache'
-import { NextRequest, NextResponse } from 'next/server'
+                  code={`import { revalidateTag } from "next/cache"
+import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest) {
-  const tag = request.nextUrl.searchParams.get('tag')
+  const tag = request.nextUrl.searchParams.get("tag")
   if (!tag) {
-    return NextResponse.json({ error: 'Missing tag' }, { status: 400 })
+    return NextResponse.json({ error: "Missing tag" }, { status: 400 })
   }
 
-  revalidateTag(tag, 'max')
+  // Purge all cache entries tagged with this name
+  revalidateTag(tag, "max")
   return NextResponse.json({ revalidated: true, tag })
 }`}
-                  highlight={[10]}
+                  highlight={[11]}
                 />
                 <Callout type="info" title="generateStaticParams">
                   <p>
