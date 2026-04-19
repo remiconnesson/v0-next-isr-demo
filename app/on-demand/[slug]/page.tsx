@@ -1,3 +1,4 @@
+import { cacheTag, cacheLife } from "next/cache"
 import { DemoNav } from "@/components/demo-nav"
 import { TimestampCard } from "@/components/timestamp-card"
 import { RevalidateButton } from "@/components/revalidate-button"
@@ -7,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
+import { generateRandomName } from "@/lib/random-name"
 
 // ---------------------------------------------------------------
 // Simulated "post" data. In a real app, you would fetch this from
@@ -33,9 +35,27 @@ export function generateStaticParams() {
 }
 
 // ---------------------------------------------------------------
-// No time-based revalidation — this page is cached indefinitely
-// until we manually call revalidateTag().
+// Cached data function. Tagged with the slug so we can invalidate
+// individual posts on demand via revalidateTag(slug).
 // ---------------------------------------------------------------
+async function getPostPageData(slug: string) {
+  "use cache"
+  cacheTag(slug)
+  cacheLife("max")
+
+  const now = new Date()
+  const generatedAt = now.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+    timeZone: "UTC",
+  })
+  const randomValue = Math.floor(Math.random() * 100_000)
+  const randomName = generateRandomName()
+
+  return { generatedAt, randomValue, randomName }
+}
 
 export default async function OnDemandPage({
   params,
@@ -54,8 +74,21 @@ export default async function OnDemandPage({
             Post not found
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Try <Link href="/on-demand/post-1" className="text-primary underline">/on-demand/post-1</Link>{" "}
-            or <Link href="/on-demand/post-2" className="text-primary underline">/on-demand/post-2</Link>.
+            Try{" "}
+            <Link
+              href="/on-demand/post-1"
+              className="text-primary underline"
+            >
+              /on-demand/post-1
+            </Link>{" "}
+            or{" "}
+            <Link
+              href="/on-demand/post-2"
+              className="text-primary underline"
+            >
+              /on-demand/post-2
+            </Link>
+            .
           </p>
         </main>
       </div>
@@ -63,15 +96,7 @@ export default async function OnDemandPage({
   }
 
   const isPreBuilt = slug === "post-1"
-  const now = new Date()
-  const generatedAt = now.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-    timeZone: "UTC",
-  })
-  const randomValue = Math.floor(Math.random() * 100_000)
+  const { generatedAt, randomValue, randomName } = await getPostPageData(slug)
 
   return (
     <div className="min-h-screen bg-background">
@@ -89,18 +114,15 @@ export default async function OnDemandPage({
           </Link>
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant="secondary">Strategy 2</Badge>
-            <Badge
-              variant="outline"
-              className="font-mono text-xs"
-            >
+            <Badge variant="outline" className="font-mono text-xs">
               on-demand revalidation
             </Badge>
             {isPreBuilt ? (
-              <Badge className="bg-[oklch(0.7_0.15_150)] text-[oklch(0.15_0.03_150)]">
+              <Badge className="bg-emerald-100 text-emerald-900">
                 Pre-built at build time
               </Badge>
             ) : (
-              <Badge className="bg-[oklch(0.8_0.15_80)] text-[oklch(0.2_0.03_80)]">
+              <Badge className="bg-amber-100 text-amber-900">
                 Rendered on first request
               </Badge>
             )}
@@ -124,6 +146,7 @@ export default async function OnDemandPage({
             generatedAt={generatedAt}
             cacheStatus={isPreBuilt ? "pre-built" : "lazy-rendered"}
             randomValue={randomValue}
+            randomName={randomName}
             title="Cached page data"
             description={
               isPreBuilt
@@ -147,11 +170,24 @@ export default async function OnDemandPage({
           </div>
 
           <Callout type="tip" title="Test flow">
-            <ol className="mt-1 flex flex-col gap-1 text-sm">
-              <li>1. Note the current timestamp and random value.</li>
-              <li>2. Click &quot;Revalidate now&quot; to purge the cache.</li>
-              <li>3. Refresh the page &mdash; you should see new values.</li>
-              <li>4. Refresh again without revalidating &mdash; values stay the same (cached again).</li>
+            <ol className="mt-1 flex flex-col gap-2 text-sm">
+              <li>
+                <strong>1.</strong> Note the current timestamp, random value,
+                and random name.
+              </li>
+              <li>
+                <strong>2.</strong> Click &quot;Revalidate now&quot; to purge
+                the cache entry for this page.
+              </li>
+              <li>
+                <strong>3.</strong> Refresh the page &mdash; all three values
+                change. The cache was invalidated and a fresh version was
+                generated.
+              </li>
+              <li>
+                <strong>4.</strong> Refresh again without revalidating &mdash;
+                values stay the same (cached again).
+              </li>
             </ol>
           </Callout>
         </section>
@@ -169,36 +205,58 @@ export default async function OnDemandPage({
               1. The dynamic page component
             </h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              This is a dynamic route with a <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">[slug]</code>{" "}
-              parameter. The key element is <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">generateStaticParams</code>{" "}
-              which only returns <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">post-1</code>,
-              meaning <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">post-2</code> is{" "}
-              <strong>not</strong> pre-built.
+              A cached helper function uses{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                cacheTag(slug)
+              </code>{" "}
+              to associate each post&apos;s cache entry with a tag, and{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                cacheLife(&quot;max&quot;)
+              </code>{" "}
+              to keep it cached until manually invalidated. Only{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                post-1
+              </code>{" "}
+              is listed in{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                generateStaticParams
+              </code>
+              .
             </p>
             <CodeBlock
               filename="app/on-demand/[slug]/page.tsx"
-              code={`// Only "post-1" is pre-rendered at build time.
-// "post-2" will be rendered on the first request.
+              code={`import { cacheTag, cacheLife } from "next/cache"
+
+// Cached data function — tagged per slug for on-demand invalidation
+async function getPostPageData(slug: string) {
+  "use cache"
+  cacheTag(slug)
+  cacheLife("max")
+
+  return {
+    generatedAt: new Date().toISOString(),
+    randomValue: Math.floor(Math.random() * 100_000),
+  }
+}
+
+// Only "post-1" is pre-rendered at build time
 export function generateStaticParams() {
   return [{ slug: "post-1" }]
 }
 
-export default async function OnDemandPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>
-}) {
+export default async function OnDemandPage({ params }) {
   const { slug } = await params
-  const data = getPostData(slug)
+  const { generatedAt, randomValue } = await getPostPageData(slug)
 
   return (
     <div>
-      <h1>{data.title}</h1>
-      <p>Generated at: {new Date().toISOString()}</p>
+      <h1>{slug}</h1>
+      <p>Generated at: {generatedAt}</p>
+      <p>Random: {randomValue}</p>
     </div>
   )
 }`}
-              highlight={[3, 4]}
+              highlight={[4, 5, 6, 7, 22]}
             />
           </div>
 
@@ -208,26 +266,36 @@ export default async function OnDemandPage({
             </h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
               This Route Handler receives a tag name via query parameter and
-              calls <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">revalidateTag()</code>{" "}
-              to purge all cached entries that were tagged with that name.
+              calls{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                revalidateTag()
+              </code>{" "}
+              to purge all cached entries that were tagged with that name. The
+              second argument{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                &quot;max&quot;
+              </code>{" "}
+              sets how long stale content can be served while fresh content
+              generates in the background.
             </p>
             <CodeBlock
               filename="app/api/revalidate/route.ts"
-              code={`import { revalidateTag } from 'next/cache'
-import { NextRequest, NextResponse } from 'next/server'
+              code={`import { revalidateTag } from "next/cache"
+import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest) {
-  const tag = request.nextUrl.searchParams.get('tag')
+  const tag = request.nextUrl.searchParams.get("tag")
 
   if (!tag) {
     return NextResponse.json(
-      { error: 'Missing tag parameter' },
+      { error: "Missing tag parameter" },
       { status: 400 }
     )
   }
 
-  // Purge all cache entries tagged with this name
-  revalidateTag(tag, 'max')
+  // Purge all cache entries tagged with this name.
+  // "max" = stale-while-revalidate (serve stale while regenerating)
+  revalidateTag(tag, "max")
 
   return NextResponse.json({
     revalidated: true,
@@ -235,7 +303,7 @@ export async function GET(request: NextRequest) {
     now: Date.now(),
   })
 }`}
-              highlight={[15]}
+              highlight={[16]}
             />
           </div>
         </section>
@@ -283,7 +351,9 @@ export async function GET(request: NextRequest) {
                     First visit experience
                   </td>
                   <td className="py-3 px-4">Instant (pre-cached)</td>
-                  <td className="py-3 pl-4">Slight delay (server render), then cached</td>
+                  <td className="py-3 pl-4">
+                    Slight delay (server render), then cached
+                  </td>
                 </tr>
                 <tr className="border-b border-border">
                   <td className="py-3 pr-4 font-medium text-foreground">
@@ -296,8 +366,8 @@ export async function GET(request: NextRequest) {
                   <td className="py-3 pr-4 font-medium text-foreground">
                     On-demand revalidation
                   </td>
-                  <td className="py-3 px-4">Supported</td>
-                  <td className="py-3 pl-4">Supported</td>
+                  <td className="py-3 px-4">Supported via cacheTag</td>
+                  <td className="py-3 pl-4">Supported via cacheTag</td>
                 </tr>
               </tbody>
             </table>
