@@ -75,7 +75,7 @@ export default async function TimeBasedPage() {
             description="These values were captured when the page was last rendered on the server."
           />
 
-          <Callout type="info" title="How to test (two refreshes!)">
+          <Callout type="info" title="How to test">
             <ol className="mt-1 flex flex-col gap-2 text-sm">
               <li>
                 <strong>1.</strong> Note the timestamp, random value, and random
@@ -87,22 +87,15 @@ export default async function TimeBasedPage() {
               </li>
               <li>
                 <strong>3.</strong> Wait at least 15 seconds, then refresh
-                &mdash; <strong>you still see the old values!</strong> This is
-                the &quot;stale&quot; response. Behind the scenes, Next.js has
-                started regenerating the page in the background.
+                &mdash; all three values change. The cache has expired and
+                Next.js generated a fresh version.
               </li>
               <li>
-                <strong>4.</strong> Refresh a second time &mdash; now all three
-                values change. The background regeneration completed and the
-                fresh version replaced the stale cache.
+                <strong>4.</strong> Refresh again right away &mdash; the values
+                stay the same. The fresh page is now cached for another 15
+                seconds.
               </li>
             </ol>
-            <p className="mt-3 text-xs text-muted-foreground">
-              This two-step behaviour is the{" "}
-              <strong>stale-while-revalidate</strong> pattern: the first request
-              after expiry triggers regeneration but still serves stale content
-              instantly. The next request gets the fresh page.
-            </p>
           </Callout>
         </section>
 

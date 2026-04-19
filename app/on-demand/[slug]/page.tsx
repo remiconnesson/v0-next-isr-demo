@@ -169,7 +169,7 @@ export default async function OnDemandPage({
             <RevalidateButton tag={slug} />
           </div>
 
-          <Callout type="tip" title="Test flow (two refreshes!)">
+          <Callout type="tip" title="Test flow">
             <ol className="mt-1 flex flex-col gap-2 text-sm">
               <li>
                 <strong>1.</strong> Note the current timestamp, random value,
@@ -180,25 +180,15 @@ export default async function OnDemandPage({
                 the cache entry for this page.
               </li>
               <li>
-                <strong>3.</strong> Refresh the page &mdash;{" "}
-                <strong>you still see the old values!</strong> This is the stale
-                response. Next.js is regenerating the page in the background.
+                <strong>3.</strong> Refresh the page &mdash; all three values
+                change. The cache was invalidated and a fresh version was
+                generated.
               </li>
               <li>
-                <strong>4.</strong> Refresh a second time &mdash; now all three
-                values change. The fresh version has replaced the stale cache.
-              </li>
-              <li>
-                <strong>5.</strong> Refresh again without revalidating &mdash;
+                <strong>4.</strong> Refresh again without revalidating &mdash;
                 values stay the same (cached again).
               </li>
             </ol>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Just like time-based revalidation, on-demand invalidation uses the{" "}
-              <strong>stale-while-revalidate</strong> pattern: the first request
-              after purging still serves stale content while the new version
-              generates in the background.
-            </p>
           </Callout>
         </section>
 
