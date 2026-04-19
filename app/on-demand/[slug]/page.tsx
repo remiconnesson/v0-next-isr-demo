@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
+import { generateRandomName } from "@/lib/random-name"
 
 // ---------------------------------------------------------------
 // Simulated "post" data. In a real app, you would fetch this from
@@ -51,8 +52,9 @@ async function getPostPageData(slug: string) {
     timeZone: "UTC",
   })
   const randomValue = Math.floor(Math.random() * 100_000)
+  const randomName = generateRandomName()
 
-  return { generatedAt, randomValue }
+  return { generatedAt, randomValue, randomName }
 }
 
 export default async function OnDemandPage({
@@ -94,7 +96,7 @@ export default async function OnDemandPage({
   }
 
   const isPreBuilt = slug === "post-1"
-  const { generatedAt, randomValue } = await getPostPageData(slug)
+  const { generatedAt, randomValue, randomName } = await getPostPageData(slug)
 
   return (
     <div className="min-h-screen bg-background">
@@ -144,6 +146,7 @@ export default async function OnDemandPage({
             generatedAt={generatedAt}
             cacheStatus={isPreBuilt ? "pre-built" : "lazy-rendered"}
             randomValue={randomValue}
+            randomName={randomName}
             title="Cached page data"
             description={
               isPreBuilt
@@ -166,22 +169,36 @@ export default async function OnDemandPage({
             <RevalidateButton tag={slug} />
           </div>
 
-          <Callout type="tip" title="Test flow">
-            <ol className="mt-1 flex flex-col gap-1 text-sm">
+          <Callout type="tip" title="Test flow (two refreshes!)">
+            <ol className="mt-1 flex flex-col gap-2 text-sm">
               <li>
-                1. Note the current timestamp and random value.
+                <strong>1.</strong> Note the current timestamp, random value,
+                and random name.
               </li>
               <li>
-                2. Click &quot;Revalidate now&quot; to purge the cache.
+                <strong>2.</strong> Click &quot;Revalidate now&quot; to purge
+                the cache entry for this page.
               </li>
               <li>
-                3. Refresh the page &mdash; you should see new values.
+                <strong>3.</strong> Refresh the page &mdash;{" "}
+                <strong>you still see the old values!</strong> This is the stale
+                response. Next.js is regenerating the page in the background.
               </li>
               <li>
-                4. Refresh again without revalidating &mdash; values stay the
-                same (cached again).
+                <strong>4.</strong> Refresh a second time &mdash; now all three
+                values change. The fresh version has replaced the stale cache.
+              </li>
+              <li>
+                <strong>5.</strong> Refresh again without revalidating &mdash;
+                values stay the same (cached again).
               </li>
             </ol>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Just like time-based revalidation, on-demand invalidation uses the{" "}
+              <strong>stale-while-revalidate</strong> pattern: the first request
+              after purging still serves stale content while the new version
+              generates in the background.
+            </p>
           </Callout>
         </section>
 

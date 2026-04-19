@@ -6,12 +6,13 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock, Server } from "lucide-react"
+import { Clock, Server, Tag } from "lucide-react"
 
 interface TimestampCardProps {
   generatedAt: string
   cacheStatus: string
   randomValue: number
+  randomName: string
   title?: string
   description?: string
 }
@@ -20,6 +21,7 @@ export function TimestampCard({
   generatedAt,
   cacheStatus,
   randomValue,
+  randomName,
   title = "Server-rendered data",
   description = "This data was generated on the server at build time or on a cache miss.",
 }: TimestampCardProps) {
@@ -51,6 +53,15 @@ export function TimestampCard({
               <p className="text-xs text-muted-foreground">Random value</p>
               <p className="font-mono text-sm font-semibold text-foreground">
                 {randomValue}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/50 p-4">
+            <Tag className="size-5 text-primary" />
+            <div>
+              <p className="text-xs text-muted-foreground">Random name</p>
+              <p className="font-mono text-sm font-semibold text-foreground">
+                {randomName}
               </p>
             </div>
           </div>

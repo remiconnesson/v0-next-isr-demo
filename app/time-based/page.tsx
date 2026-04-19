@@ -5,6 +5,7 @@ import { CodeBlock } from "@/components/code-block"
 import { Callout } from "@/components/callout"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { generateRandomName } from "@/lib/random-name"
 
 // ---------------------------------------------------------------
 // This cached function generates a timestamp and random value.
@@ -28,12 +29,13 @@ async function getPageData() {
     timeZone: "UTC",
   })
   const randomValue = Math.floor(Math.random() * 100_000)
+  const randomName = generateRandomName()
 
-  return { generatedAt, randomValue }
+  return { generatedAt, randomValue, randomName }
 }
 
 export default async function TimeBasedPage() {
-  const { generatedAt, randomValue } = await getPageData()
+  const { generatedAt, randomValue, randomName } = await getPageData()
 
   return (
     <div className="min-h-screen bg-background">
@@ -68,28 +70,39 @@ export default async function TimeBasedPage() {
             generatedAt={generatedAt}
             cacheStatus="cacheLife: 15s"
             randomValue={randomValue}
+            randomName={randomName}
             title="Cached page data"
             description="These values were captured when the page was last rendered on the server."
           />
 
-          <Callout type="info" title="How to test">
-            <ol className="mt-1 flex flex-col gap-1 text-sm">
+          <Callout type="info" title="How to test (two refreshes!)">
+            <ol className="mt-1 flex flex-col gap-2 text-sm">
               <li>
-                1. Note the timestamp and random value above.
+                <strong>1.</strong> Note the timestamp, random value, and random
+                name above.
               </li>
               <li>
-                2. Refresh the page immediately &mdash; values stay the same
-                (cached).
+                <strong>2.</strong> Refresh immediately &mdash; all three values
+                stay the same. The page is served from cache.
               </li>
               <li>
-                3. Wait 15+ seconds, then refresh &mdash; you still see stale
-                data.
+                <strong>3.</strong> Wait at least 15 seconds, then refresh
+                &mdash; <strong>you still see the old values!</strong> This is
+                the &quot;stale&quot; response. Behind the scenes, Next.js has
+                started regenerating the page in the background.
               </li>
               <li>
-                4. Refresh once more &mdash; now you see new data (regenerated
-                in background).
+                <strong>4.</strong> Refresh a second time &mdash; now all three
+                values change. The background regeneration completed and the
+                fresh version replaced the stale cache.
               </li>
             </ol>
+            <p className="mt-3 text-xs text-muted-foreground">
+              This two-step behaviour is the{" "}
+              <strong>stale-while-revalidate</strong> pattern: the first request
+              after expiry triggers regeneration but still serves stale content
+              instantly. The next request gets the fresh page.
+            </p>
           </Callout>
         </section>
 
